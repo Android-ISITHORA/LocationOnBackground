@@ -2,6 +2,7 @@ package com.crcodings.backgroundservice;
 
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -9,15 +10,26 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -132,7 +144,6 @@ public class LocationService extends Service {
 
         String device_name = android.os.Build.MODEL;
 
-//        Toast.makeText(LocationService.this, device_name+" (lat: "+location.getLatitude()+" long: "+location.getLongitude()+")", Toast.LENGTH_SHORT).show();
         Log.d(TAG, "LocationDetailAPI:device_name " + device_name);
         Log.d(TAG, "LocationDetailAPI:lat " + location.getLatitude());
         Log.d(TAG, "LocationDetailAPI:long " + location.getLongitude());
@@ -142,6 +153,9 @@ public class LocationService extends Service {
         locationModel.setLatitude(lat);
         locationModel.setLongitude(lang);
         dbHandler.insertLatLang(locationModel);
+        if(isNetworkEnabled){
+            new SaveLatLang(device_name,lat,lang).execute();
+        }
     }
 
     @Override
@@ -177,4 +191,106 @@ public class LocationService extends Service {
         public void onProviderEnabled(String s) {
         }
     }
+
+
+
+    @SuppressLint("StaticFieldLeak")
+    private class SaveLatLang extends AsyncTask<String,String,String> {
+        String message = "", user_id, address_id, access_token;
+        String Product_Exception = "false";
+        String resServer = "";
+        String latitude = "";
+        String longitude = "";
+        String device_name = "";
+        boolean status = false;
+
+        SaveLatLang(String device_name, String latitude, String longitude) {
+
+            this.device_name = device_name;
+            this.latitude = latitude;
+            this.longitude = longitude;
+
+        }
+
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+
+        @Override
+        protected String doInBackground(String... strings) {
+
+            try{
+
+                Uri.Builder builder = new Uri.Builder()
+                        .appendQueryParameter("activeFlag", "false")
+                        .appendQueryParameter("id", address_id);
+                String formData = builder.build().getEncodedQuery();
+
+                URL url = new URL("https://portal.spassh.com/WebApi/Api/Home/StoreValues?deviceId=sriniTamilDevice&lat="+latitude+
+                        "&longt="+longitude);
+
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setDoOutput(true);
+                conn.setRequestMethod("PUT");
+                conn.setRequestProperty ("Authorization", access_token);
+                conn.setFixedLengthStreamingMode(formData.getBytes().length);
+
+                OutputStream os = conn.getOutputStream();
+                PrintWriter out = new PrintWriter(os);
+                out.print(formData);
+                out.flush();
+                out.close();
+                os.close();
+
+                conn.connect();
+
+                int responseCode = conn.getResponseCode();
+
+                BufferedReader in;
+                if (responseCode == HttpURLConnection.HTTP_OK
+                        || responseCode == HttpURLConnection.HTTP_CREATED) {
+
+                    in = new BufferedReader(
+                            new InputStreamReader(conn.getInputStream()));
+                    Product_Exception = "true";
+
+                } else {
+
+                    in = new BufferedReader(
+                            new InputStreamReader(conn.getErrorStream()));
+
+                    Product_Exception = "false";
+                }
+
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+
+                resServer = response.toString();
+
+
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+
+            return resServer;
+        }
+
+        @Override
+        protected void onPostExecute(String d) {
+            super.onPostExecute(d);
+
+            if(resServer != null){
+
+                Toast.makeText(LocationService.this, device_name+" (lat: "+latitude+" long: "+longitude+")", Toast.LENGTH_SHORT).show();
+            }else{
+                Toast.makeText(LocationService.this,"Please Try Again! Unable to Delete",Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+
 }
