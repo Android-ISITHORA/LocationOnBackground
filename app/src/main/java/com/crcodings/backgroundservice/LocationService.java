@@ -284,10 +284,10 @@ public class LocationService extends Service {
             super.onPostExecute(d);
 
             if(resServer != null){
-
-                Toast.makeText(LocationService.this, device_name+" (lat: "+latitude+" long: "+longitude+")", Toast.LENGTH_SHORT).show();
+//
+//                Toast.makeText(LocationService.this, device_name+" (lat: "+latitude+" long: "+longitude+")", Toast.LENGTH_SHORT).show();
             }else{
-                Toast.makeText(LocationService.this,"Please Try Again! Unable to Delete",Toast.LENGTH_SHORT).show();
+//                Toast.makeText(LocationService.this,"Please Try Again! Unable to Delete",Toast.LENGTH_SHORT).show();
             }
         }
     }
