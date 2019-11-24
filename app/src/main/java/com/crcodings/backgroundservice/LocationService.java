@@ -153,9 +153,9 @@ public class LocationService extends Service {
         locationModel.setLatitude(lat);
         locationModel.setLongitude(lang);
         dbHandler.insertLatLang(locationModel);
-        if(isNetworkEnabled){
+
             new SaveLatLang(device_name,lat,lang).execute();
-        }
+
     }
 
     @Override

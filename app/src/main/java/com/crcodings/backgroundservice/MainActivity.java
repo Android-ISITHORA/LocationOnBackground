@@ -2,12 +2,16 @@ package com.crcodings.backgroundservice;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -32,7 +36,15 @@ public class MainActivity extends AppCompatActivity {
     boolean isNetworkEnabled = false;
     protected LocationManager locationManager;
     SharedPreferences sharedPreferences;
+    private BroadcastReceiver mNetworkReceiver;
 
+
+    public String Dialog_Location_Title = "GPS Required";
+    public String Dialog_Location_Message = "Your GPS seems to be disabled, " +
+            "do you want to enable it?";
+    public String Dialog_Yes_Button = "Yes";
+    public String Dialog_No_Button = "No";
+    public String Dialog_Location = "Location";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,10 +71,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         isPermissionAllowed = checkLocationPermission(MainActivity.this);
+        isNetworkEnabled = isConnectingToInternet(this);
+
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (locationManager != null) {
             isGPSEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-            isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+
         }
 
         Log.d("LocationService", " " + isGPSEnabled + " " + isNetworkEnabled);
@@ -212,6 +226,52 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public void onResume(){
+        super.onResume();
+
+        //Network Connectivity Change Receiver
+        mNetworkReceiver = new NetworkChangeReceiver();
+
+//        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.N) {
+        registerReceiver(mNetworkReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+//        }
+        isPermissionAllowed = checkLocationPermission(MainActivity.this);
+        isNetworkEnabled = isConnectingToInternet(this);
+
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager != null) {
+            isGPSEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+
+        }
+        boolean isGPSEnabled = isLocationEnabled(MainActivity.this);
+        if (isGPSEnabled) {
+
+        } else {
+            showDialog(MainActivity.this, Dialog_Location_Title,
+                    Dialog_Location_Message, Dialog_Yes_Button,
+                    Dialog_No_Button, Dialog_Location);
+        }
+
+        Log.d("LocationService", " " + isGPSEnabled + " " + isNetworkEnabled);
+
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if(mNetworkReceiver != null)
+            unregisterNetworkChanges();
+    }
+
+    protected void unregisterNetworkChanges() {
+        try {
+            unregisterReceiver(mNetworkReceiver);
+            mNetworkReceiver = null;
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -231,6 +291,123 @@ public class MainActivity extends AppCompatActivity {
             }
 
         }
+    }
+
+    public static boolean isConnectingToInternet(Context context) {
+
+        ConnectivityManager connectivityManager = (ConnectivityManager)
+                context.getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        if (connectivityManager != null) {
+
+            NetworkInfo[] info = connectivityManager.getAllNetworkInfo();
+            if (info != null) {
+                for (NetworkInfo anInfo : info) {
+                    if (anInfo.getState() == NetworkInfo.State.CONNECTED) {
+                        Log.d("Network", "NETWORK_NAME: " + anInfo.getTypeName());
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public static boolean isLocationEnabled(Context context) {
+
+        LocationManager lm;
+        boolean gps_enabled = false;
+        boolean network_enabled = false;
+        lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+
+        // exceptions will be thrown if provider is not permitted.
+        try {
+            if (lm != null) {
+                gps_enabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
+
+                network_enabled = lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+            }
+        } catch (Exception ex) {
+            Log.d("canGetLocation", "Exception : " + ex.getMessage());
+        }
+
+        return gps_enabled || network_enabled;
+    }
+
+    public static void showDialog(final Context context,
+                                  String title,
+                                  String message,
+                                  String positiveButton,
+                                  String negativeButton,
+                                  final String function) {
+
+        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
+        alertDialogBuilder
+                .setTitle(title)
+                .setMessage(message)
+                .setCancelable(false)
+                .setPositiveButton(positiveButton, new DialogInterface.OnClickListener() {
+
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                        Intent i = new Intent();
+
+                            if (context instanceof AppCompatActivity) {
+
+                                i.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                i.addCategory(Intent.CATEGORY_DEFAULT);
+                                i.setData(Uri.parse("package:" + context.getPackageName()));
+                                ((AppCompatActivity) context).startActivityForResult(i, 1);
+
+                            }else {
+
+                                i.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                i.addCategory(Intent.CATEGORY_DEFAULT);
+                                i.setData(Uri.parse("package:" + context.getPackageName()));
+                                ((Activity) context).startActivityForResult(i, 1);
+
+                            }
+
+                    }
+                })
+                .setNegativeButton(negativeButton, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+
+        AlertDialog alert = alertDialogBuilder.create();
+
+        if (context instanceof AppCompatActivity) {
+
+            if (!((AppCompatActivity) context).isFinishing()) {
+
+                if (alert != null && !alert.isShowing()) {
+
+                    alert.show();
+
+//                    customiseAlert(alert, context);
+                }
+
+            }
+
+        } else {
+
+            if (!((Activity) context).isFinishing()) {
+
+                if (alert != null && !alert.isShowing()) {
+
+                    alert.show();
+
+//                    customiseAlert(alert, context);
+                }
+            }
+        }
+
+
     }
 
 
