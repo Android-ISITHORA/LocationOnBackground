@@ -15,6 +15,7 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
@@ -46,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
     public String Dialog_No_Button = "No";
     public String Dialog_Location = "Location";
 
+    DatabaseHandler databaseHandler;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
         final Button tv_start = findViewById(R.id.tv_start);
         final Button tv_stop = findViewById(R.id.tv_stop);
 
+        databaseHandler = new DatabaseHandler(this);
 
         sharedPreferences = getSharedPreferences("ServiceDetails",MODE_PRIVATE);
 
@@ -70,20 +74,23 @@ public class MainActivity extends AppCompatActivity {
             tv_stop.setEnabled(false);
         }
 
-        isPermissionAllowed = checkLocationPermission(MainActivity.this);
-        isNetworkEnabled = isConnectingToInternet(this);
-
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (locationManager != null) {
             isGPSEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-
         }
+
+        isPermissionAllowed = checkLocationPermission(MainActivity.this);
+        isNetworkEnabled = isConnectingToInternet(this);
+
+    //    isGPSEnabled = isLocationEnabled(MainActivity.this);
+
 
         Log.d("LocationService", " " + isGPSEnabled + " " + isNetworkEnabled);
 
         tv_start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                isNetworkEnabled = isConnectingToInternet(MainActivity.this);
                 if(isNetworkEnabled) {
                     if(isGPSEnabled) {
                         if (isPermissionAllowed) {
@@ -111,6 +118,8 @@ public class MainActivity extends AppCompatActivity {
                 Intent intent = new Intent(getApplicationContext(), LocationService.class);
                 stopService(intent);
 
+                int count = databaseHandler.getLocationData().size();
+
                 sharedPreferences.edit().putBoolean("isServiceStarted", false).apply();
                 tv_start.setBackground(ContextCompat.getDrawable(MainActivity.this, R.drawable.button));
                 tv_stop.setBackground(ContextCompat.getDrawable(MainActivity.this, R.drawable.button_bg));
@@ -130,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
                 intent.setData(Uri.parse("package:" + getPackageName()));
                 startActivityForResult(intent, MY_IGNORE_OPTIMIZATION_REQUEST);
             }else {
-                Toast.makeText(getApplicationContext(), "power allowed", Toast.LENGTH_LONG).show();
+//                Toast.makeText(getApplicationContext(), "power allowed", Toast.LENGTH_LONG).show();
             }
         }
 
@@ -160,13 +169,13 @@ public class MainActivity extends AppCompatActivity {
                             if (context instanceof AppCompatActivity) {
 
                                 ActivityCompat.requestPermissions((AppCompatActivity) context,
-                                        new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
+                                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                                         MY_PERMISSIONS_REQUEST_LOCATION);
 
                             } else {
 
                                 ActivityCompat.requestPermissions((Activity) context,
-                                        new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
+                                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                                         MY_PERMISSIONS_REQUEST_LOCATION);
 
                             }
@@ -206,13 +215,13 @@ public class MainActivity extends AppCompatActivity {
                     if (context instanceof AppCompatActivity) {
 
                         ActivityCompat.requestPermissions((AppCompatActivity) context,
-                                new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
+                                new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                                 MY_PERMISSIONS_REQUEST_LOCATION);
 
                     } else {
 
                         ActivityCompat.requestPermissions((Activity) context,
-                                new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
+                                new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                                 MY_PERMISSIONS_REQUEST_LOCATION);
 
                     }
@@ -242,15 +251,14 @@ public class MainActivity extends AppCompatActivity {
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (locationManager != null) {
             isGPSEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-
         }
-        boolean isGPSEnabled = isLocationEnabled(MainActivity.this);
+
         if (isGPSEnabled) {
 
         } else {
-            showDialog(MainActivity.this, Dialog_Location_Title,
+            showLocationEnable(MainActivity.this, Dialog_Location_Title,
                     Dialog_Location_Message, Dialog_Yes_Button,
-                    Dialog_No_Button, Dialog_Location);
+                    Dialog_No_Button);
         }
 
         Log.d("LocationService", " " + isGPSEnabled + " " + isNetworkEnabled);
@@ -291,7 +299,23 @@ public class MainActivity extends AppCompatActivity {
             }
 
         }
-    }
+
+
+        if (requestCode == MY_IGNORE_OPTIMIZATION_REQUEST) {
+            isGPSEnabled = isLocationEnabled(MainActivity.this);
+            if(!isGPSEnabled){
+                isGPSEnabled = false;
+                showLocationEnable(MainActivity.this, Dialog_Location_Title,
+                        Dialog_Location_Message, Dialog_Yes_Button,
+                        Dialog_No_Button);
+            }else {
+                isGPSEnabled = true;
+            }
+        }
+
+
+
+        }
 
     public static boolean isConnectingToInternet(Context context) {
 
@@ -407,6 +431,74 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+
+    }
+
+
+    private void showLocationEnable(final Context context,
+                                    String title,
+                                    String message,
+                                    String positiveButton,
+                                    String negativeButton){
+        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
+        alertDialogBuilder
+                .setTitle(title)
+                .setMessage(message)
+                .setCancelable(false)
+                .setPositiveButton(positiveButton, new DialogInterface.OnClickListener() {
+
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                        Intent i = new Intent();
+                        if (context instanceof AppCompatActivity) {
+
+                            i.setAction(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                            ((AppCompatActivity) context).startActivityForResult(i, MY_PERMISSIONS_REQUEST_LOCATION);
+
+                        }else {
+
+                            i.setAction(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                            ((Activity) context).startActivityForResult(i, MY_PERMISSIONS_REQUEST_LOCATION);
+
+                        }
+
+                    }
+                })
+                .setNegativeButton(negativeButton, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(final DialogInterface dialog, int which) {
+
+                        new Handler().postDelayed(new Runnable(){
+                            @Override
+                            public void run() {
+                                /* Create an Intent that will start the Menu-Activity. */
+                                dialog.dismiss();
+//                }
+
+                            }
+                        }, 1000);
+
+                    }
+                });
+
+        AlertDialog alert = alertDialogBuilder.create();
+
+        if (!MainActivity.this.isFinishing()) {
+            if (!alert.isShowing()) {
+                alert.show();
+
+            }
+        }
+
+        alert.setOnCancelListener(new DialogInterface.OnCancelListener() {
+            @Override
+            public void onCancel(DialogInterface dialog) {
+//                moveToNextActivity();
+                dialog.dismiss();
+
+            }
+        });
 
     }
 

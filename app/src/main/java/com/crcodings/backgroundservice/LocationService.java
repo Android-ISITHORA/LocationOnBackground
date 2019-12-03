@@ -56,7 +56,8 @@ public class LocationService extends Service {
     public void onCreate() {
         super.onCreate();
                 Log.d(TAG, "GPS Service created ...");
-                locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
+          locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (locationManager != null) {
             isGPSEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
             isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
@@ -125,18 +126,20 @@ public class LocationService extends Service {
             Log.d(TAG, "Location Permission is declined");
         } else {
 
-            if (isNetworkEnabled && isGPSEnabled) {
+
                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,
                         MINIMUM_TIME_BETWEEN_UPDATES,
                         MINIMUM_DISTANCE_CHANGE_FOR_UPDATES, new MyLocationListener());
 
                 Location location = getLastKnownLocation();
-                LocationDetailAPI(location);
-                Log.d(TAG, "onCreate: " + location);
-                Log.d(TAG, "onCreate:lat " + location.getLatitude());
-                Log.d(TAG, "onCreate:long " + location.getLongitude());
+                if(location != null) {
+                    LocationDetailAPI(location);
+                    Log.d(TAG, "onCreate: " + location);
+                    Log.d(TAG, "onCreate:lat " + location.getLatitude());
+                    Log.d(TAG, "onCreate:long " + location.getLongitude());
+                }
             }
-        }
+
 
     }
 
@@ -144,17 +147,19 @@ public class LocationService extends Service {
 
         String device_name = android.os.Build.MODEL;
 
-        Log.d(TAG, "LocationDetailAPI:device_name " + device_name);
-        Log.d(TAG, "LocationDetailAPI:lat " + location.getLatitude());
-        Log.d(TAG, "LocationDetailAPI:long " + location.getLongitude());
-        String lat = String.valueOf(location.getLatitude());
-        String lang = String.valueOf(location.getLongitude());
-        LocationModel locationModel = new LocationModel();
-        locationModel.setLatitude(lat);
-        locationModel.setLongitude(lang);
-        dbHandler.insertLatLang(locationModel);
+//        Log.d(TAG, "LocationDetailAPI:device_name " + device_name);
+//        Log.d(TAG, "LocationDetailAPI:lat " + location.getLatitude());
+//        Log.d(TAG, "LocationDetailAPI:long " + location.getLongitude());
+        if(location != null) {
+            String lat = String.valueOf(location.getLatitude());
+            String lang = String.valueOf(location.getLongitude());
+            LocationModel locationModel = new LocationModel();
+            locationModel.setLatitude(lat);
+            locationModel.setLongitude(lang);
+            dbHandler.insertLatLang(locationModel);
 
-            new SaveLatLang(device_name,lat,lang).execute();
+            new SaveLatLang(device_name, lat, lang).execute();
+        }
 
     }
 
@@ -170,15 +175,17 @@ public class LocationService extends Service {
 
     private class MyLocationListener implements LocationListener {
         public void onLocationChanged(Location location) {
-            String message = String.format("New Location \n Longitude: %1$s \n Latitude: %2$s",
-                    location.getLongitude(), location.getLatitude());
-            String device_name = android.os.Build.MODEL;
+            if(location != null) {
+                String message = String.format("New Location \n Longitude: %1$s \n Latitude: %2$s",
+                        location.getLongitude(), location.getLatitude());
+                String device_name = android.os.Build.MODEL;
 //            Toast.makeText(LocationService.this, device_name+" (lat: "+location.getLatitude()+" long: "+location.getLongitude()+")", Toast.LENGTH_SHORT).show();
 
-            Log.d(TAG, device_name);
-            Log.d(TAG, location.getLatitude() + " " + location.getLongitude());
-            Log.d(TAG, message);
-            LocationDetailAPI(location);
+//            Log.d(TAG, device_name);
+//            Log.d(TAG, location.getLatitude() + " " + location.getLongitude());
+//            Log.d(TAG, message);
+                LocationDetailAPI(location);
+            }
 
         }
 

@@ -89,24 +89,7 @@ public class NetworkChangeReceiver extends BroadcastReceiver {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
 
-                        Intent i = new Intent();
-
-                            if (context instanceof AppCompatActivity) {
-
-                                i.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                i.addCategory(Intent.CATEGORY_DEFAULT);
-                                i.setData(Uri.parse("package:" + context.getPackageName()));
-                                ((AppCompatActivity) context).startActivityForResult(i, APP_PERMISSION_SETTINGS);
-
-                            }else {
-
-                                i.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                i.addCategory(Intent.CATEGORY_DEFAULT);
-                                i.setData(Uri.parse("package:" + context.getPackageName()));
-                                ((Activity) context).startActivityForResult(i, APP_PERMISSION_SETTINGS);
-
-                            }
-
+                      dialog.dismiss();
                     }
                 })
                 .setNegativeButton(negativeButton, new DialogInterface.OnClickListener() {
